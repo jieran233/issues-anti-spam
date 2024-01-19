@@ -240,5 +240,3 @@ cython_debug/
 #.idea/
 
 ### issues-anti-spam
-# Config file for testing
-bot-server/config.test.json
