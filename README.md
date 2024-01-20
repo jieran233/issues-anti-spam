@@ -1,7 +1,5 @@
 # issues-anti-spam
 
-Don't let annoying rookie issues affect your development work anymore! 
-
 TBD
 
 ## Used Libraries
