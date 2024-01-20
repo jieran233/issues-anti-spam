@@ -1,0 +1,84 @@
+name: issues-anti-spam
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  issues-anti-spam:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Get Issue Details
+      run: |
+        response=$(curl -sSL \
+                      -H "Accept: application/vnd.github+json" \
+                      -H "Authorization: Bearer ${{ secrets.GH_TOKEN_REPO }}" \
+                      -H "X-GitHub-Api-Version: 2022-11-28" \
+                      "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}")
+        
+        {
+        echo 'ISSUE_TITLE<<EOF'
+        echo "$response" | jq -r '.title'
+        echo EOF
+        } >> "$GITHUB_ENV"
+        {
+        echo 'ISSUE_BODY<<EOF'
+        echo "$response" | jq -r '.body'
+        echo EOF
+        } >> "$GITHUB_ENV"
+        
+        echo "New Issue:"
+        echo "Number: ${{ github.event.issue.number }}"
+        echo "URL: ${{ github.event.issue.html_url }}"
+
+    - name: Install Dependencies & Prepare Message
+      env:
+        REPO_URL: https://github.com/jieran233/chatgpt-api-server.git
+        CHROMIUM_URL: https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2F1134343%2Fchrome-linux.zip?generation=1682290626198822&alt=media
+        PROMPT_FILE_URL: https://github.com/jieran233/issues-anti-spam/raw/master/prompt/issues-anti-spam-prompt.txt
+      run: |
+        # Clone repo and install dependencies
+        git clone $REPO_URL chatgpt-api-server
+        cd chatgpt-api-server
+        sudo apt update
+        sudo apt install -y xvfb xclip
+        pip3 install --upgrade -r requirements.txt
+        
+        # Download and install Chromium
+        curl -sSL "$CHROMIUM_URL" --output /tmp/chromium.zip
+        unzip -qq /tmp/chromium.zip -d /tmp
+        rm /tmp/chromium.zip
+
+        # Modify __init__.py of undetected-chromedriver to set browser_executable_path
+        package_name="undetected_chromedriver"
+        package_path="$(pip show $package_name | grep -i "location" | cut -d ' ' -f 2)/${package_name}"
+        sed -i 's/browser_executable_path=None/browser_executable_path="\/tmp\/chrome-linux\/chrome"/' "${package_path}/__init__.py"
+        sed -i 's/debug=False/debug=True/' "${package_path}/__init__.py"
+        
+        # # Make Chromium findable by undetected-chromedriver
+        # export PATH="/tmp/chrome-linux:$PATH"
+        
+        # Download prompt file
+        curl -sSL "$PROMPT_FILE_URL" --output /tmp/prompt.txt
+        
+        # Write issue title and body to message file
+        echo -e "Issue Title:\n${ISSUE_TITLE}\n\n" > /tmp/issue.txt
+        echo -e "Issue Body:\n${ISSUE_BODY}" >> /tmp/issue.txt
+
+        cat /tmp/prompt.txt && echo "" && cat /tmp/issue.txt
+        
+    - name: Send Message to Bot
+      env:
+        DISPLAY: :99
+      run: |
+        # https://manpages.ubuntu.com/manpages/xenial/man1/xvfb-run.1.html
+        xvfb-run -n 99 python3 send_message.py --message_file "/tmp/prompt.txt" "/tmp/issue.txt" --session_token "${{ secrets.CHATGPT_SESSION_TOKEN }}" --verbose --output_file "/tmp/output.txt"
+      working-directory: ./chatgpt-api-server/
+        
+    - name: Respond to the Issues
+      run: |
+        du /tmp/output.txt
+        cat /tmp/output.txt
+        
