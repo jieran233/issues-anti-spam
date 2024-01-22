@@ -68,21 +68,21 @@ jobs:
         echo -e "Issue Body:\n${ISSUE_BODY}" >> /tmp/issue.txt
 
         cat /tmp/prompt.txt && echo "" && cat /tmp/issue.txt
-        
-    - name: Send Message to Bot
-      env:
-        DISPLAY: :99
-      run: |
-        # https://manpages.ubuntu.com/manpages/xenial/man1/xvfb-run.1.html
-        xvfb-run -n 99 python3 send_message.py --message_file "/tmp/prompt.txt" "/tmp/issue.txt" --session_token "${{ secrets.CHATGPT_SESSION_TOKEN }}" --verbose --output_file "/tmp/output.txt" || true
-      working-directory: ./chatgpt-api-server/
+
+        echo "JUDGMENT_LINE_SYMBOL=🤖💬" >> "$GITHUB_ENV"
+        echo "SPAM_SYMBOL=🗑️" >> "$GITHUB_ENV"
+        echo "SUSPICIOUS_SYMBOL=🤔" >> "$GITHUB_ENV"
+        echo "HARMLESS_SYMBOL=✅" >> "$GITHUB_ENV"
+
+    - name: Send Message to Bot & Check Response Validity
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 10
+        max_attempts: 3
+        command: DISPLAY=":99" xvfb-run -n 99 python3 chatgpt-api-server/send_message.py --message_file "/tmp/prompt.txt" "/tmp/issue.txt" --session_token "${{ secrets.CHATGPT_SESSION_TOKEN }}" --verbose --output_file "/tmp/output.txt" && judgment_result=$(grep -m 1 "$JUDGMENT_LINE_SYMBOL" /tmp/output.txt) && [[ $judgment_result == *"$SPAM_SYMBOL"* || $judgment_result == *"$SUSPICIOUS_SYMBOL"* || $judgment_result == *"$HARMLESS_SYMBOL"* ]]
         
     - name: Respond to the Issues
       env:
-        JUDGMENT_LINE_SYMBOL: 🤖💬
-        SPAM_SYMBOL: 🗑️
-        SUSPICIOUS_SYMBOL: 🤔
-        HARMLESS_SYMBOL: ✅
         HIDDEN_TITLE: (Original title has been hidden)
       run: |
         judgment_result=$(grep -m 1 "$JUDGMENT_LINE_SYMBOL" /tmp/output.txt)
