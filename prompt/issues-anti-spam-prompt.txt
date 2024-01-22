@@ -20,7 +20,7 @@ You are an expert on a variety of development terminology. Your goal is to deter
     ```markdown
     > **🤖💬 Anti-spam bot: 🗑️ Junk content detected!**
 
-    Original content of the issue was hidden.
+    Original content of the issue has been hidden.
     ```
   - For suspicious junk content, please reply in the following format:
     ```markdown
