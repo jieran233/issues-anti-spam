@@ -40,7 +40,7 @@ jobs:
         PROMPT_FILE_URL: https://github.com/jieran233/issues-anti-spam/raw/master/prompt/issues-anti-spam-prompt.txt
       run: |
         # Clone repo and install dependencies
-        git clone $REPO_URL chatgpt-api-server
+        git clone "$REPO_URL" chatgpt-api-server
         cd chatgpt-api-server
         sudo apt update
         sudo apt install -y xvfb xclip
@@ -74,11 +74,44 @@ jobs:
         DISPLAY: :99
       run: |
         # https://manpages.ubuntu.com/manpages/xenial/man1/xvfb-run.1.html
-        xvfb-run -n 99 python3 send_message.py --message_file "/tmp/prompt.txt" "/tmp/issue.txt" --session_token "${{ secrets.CHATGPT_SESSION_TOKEN }}" --verbose --output_file "/tmp/output.txt"
+        xvfb-run -n 99 python3 send_message.py --message_file "/tmp/prompt.txt" "/tmp/issue.txt" --session_token "${{ secrets.CHATGPT_SESSION_TOKEN }}" --verbose --output_file "/tmp/output.txt" || true
       working-directory: ./chatgpt-api-server/
         
     - name: Respond to the Issues
+      env:
+        JUDGMENT_LINE_SYMBOL: 🤖💬
+        SPAM_SYMBOL: 🗑️
+        SUSPICIOUS_SYMBOL: 🤔
+        HARMLESS_SYMBOL: ✅
+        HIDDEN_TITLE: (Original title has been hidden)
       run: |
-        du /tmp/output.txt
-        cat /tmp/output.txt
+        judgment_result=$(grep -m 1 "$JUDGMENT_LINE_SYMBOL" /tmp/output.txt)
+        if [[ $judgment_result == *"$SPAM_SYMBOL"* ]]; then
+            echo "$SPAM_SYMBOL"
+            # Hide title and body, close, mark as spam
+            data=$(jq -n --arg title "$HIDDEN_TITLE" --arg body "$(cat /tmp/output.txt)" '{"title":$title,"body":$body,"state":"closed","labels":["spam"]}')
+            # Lock issue
+            curl -sSL \
+              -X PUT \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GH_TOKEN_REPO }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/lock" \
+              -d '{"lock_reason":"spam"}'
+        elif [[ $judgment_result == *"$SUSPICIOUS_SYMBOL"* ]]; then 
+            echo "$SUSPICIOUS_SYMBOL"
+            # Hide title, collapse body, close, mark as suspicious-spam
+            data=$(jq -n --arg title "$HIDDEN_TITLE" --arg body "$(cat /tmp/output.txt)" '{"title":$title,"body":$body,"state":"closed","labels":["suspicious-spam"]}')
+        elif [[ $judgment_result == *"$HARMLESS_SYMBOL"* ]]; then
+            echo "$HARMLESS_SYMBOL"
+            # Do nothing
+            exit 0
+        fi
         
+        curl -sSL \
+          -X PATCH \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.GH_TOKEN_REPO }}" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}" \
+          -d "$data"
