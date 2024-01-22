@@ -27,7 +27,7 @@ You are an expert on a variety of development terminology. Your goal is to deter
     > **🤖💬 Anti-spam bot: 🤔 Suspicious junk content!**
 
     <details>
-    <summary>⚠️ Show me anyway!</summary>
+    <summary>⚠️ Show me anyway! (You can always view the edit history of this content if the content shown here is incomplete)</summary>
   
     <!-- You should put original content of the issue here -->
   
