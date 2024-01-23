@@ -1,8 +1,6 @@
 # issues-anti-spam
 
-> 🚧 The project is currently in the early development stage.
->
-> Now it should be able to run preliminarily, but there are many unresolved issues.
+> 🚧 The project is currently in development stage. Now it might be able to run preliminarily
 
 This project aims to help open-source project developers better focus on the development and maintenance of the project itself, stay away from annoying rookie issues.
 
