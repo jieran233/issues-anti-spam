@@ -77,8 +77,8 @@ jobs:
     - name: Send Message to Bot & Check Response Validity
       uses: nick-fields/retry@v2
       with:
-        timeout_minutes: 10
-        max_attempts: 3
+        timeout_seconds: 300
+        max_attempts: 10
         command: DISPLAY=":99" xvfb-run -n 99 python3 chatgpt-api-server/send_message.py --message_file "/tmp/prompt.txt" "/tmp/issue.txt" --session_token "${{ secrets.CHATGPT_SESSION_TOKEN }}" --verbose --output_file "/tmp/output.txt" && judgment_result=$(grep -m 1 "$JUDGMENT_LINE_SYMBOL" /tmp/output.txt) && [[ $judgment_result == *"$SPAM_SYMBOL"* || $judgment_result == *"$SUSPICIOUS_SYMBOL"* || $judgment_result == *"$HARMLESS_SYMBOL"* ]]
         
     - name: Respond to the Issues
